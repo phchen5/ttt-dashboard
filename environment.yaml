@@ -1,0 +1,15 @@
+name: ttt-dashboard
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - altair
+  - geopandas
+  - numpy
+  - pandas
+  - pydeck
+  - python
+  - requests
+  - shapely
+  - streamlit
+prefix: /Users/benchen/miniconda3/envs/ttt-dashboard
