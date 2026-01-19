@@ -109,6 +109,18 @@ with tab_species:
         if col in species_df.columns:
             species_df[col] = pd.to_numeric(species_df[col], errors="coerce")
 
+    # ---- Summary metrics ----
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Rows", f"{len(species_df):,}")
+    c2.metric("Traits measured", species_df["Trait"].nunique() if "Trait" in species_df.columns else 0)
+    c3.metric("Sites", species_df["SiteName"].nunique() if "SiteName" in species_df.columns else 0)
+    if "Year" in species_df.columns and species_df["Year"].notna().any():
+        c4.metric("Years", f"{int(species_df['Year'].min())} – {int(species_df['Year'].max())}")
+    else:
+        c4.metric("Years", "N/A")
+
+    st.divider()
+
     # ---- Preview table ----
     st.subheader("Row preview (first 200)")
 
