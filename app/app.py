@@ -39,3 +39,27 @@ def _safe_unique(df: pd.DataFrame, col: str):
     if col not in df.columns:
         return []
     return sorted([x for x in df[col].dropna().unique()])
+
+# -----------------------------
+# Sidebar controls
+# -----------------------------
+with st.sidebar:
+    st.header("Data")
+
+    # Force refresh: delete cached file + meta then rerun
+    if st.button("Force refresh from source"):
+        try:
+            if LOCAL_CSV.exists():
+                LOCAL_CSV.unlink()
+            if META_FILE.exists():
+                META_FILE.unlink()
+        except Exception:
+            pass
+        st.cache_data.clear()
+        st.rerun()
+
+    st.caption("Source")
+    st.code(RAW_URL, language="text")
+
+
+df = load_data()
