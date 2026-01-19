@@ -122,7 +122,7 @@ with tab_species:
     st.divider()
 
     # ---- Trait coverage (counts) ----
-    st.subheader("Trait coverage")
+    st.subheader("Trait Coverage")
 
     if "Trait" not in species_df.columns:
         st.info("No 'Trait' column available.")
@@ -177,6 +177,57 @@ with tab_species:
             .sort_values("n", ascending=False)
         )
         st.dataframe(summary, use_container_width=True)
+
+    st.divider()
+
+    # ---- Optional: choose a trait for a deeper look ----
+    st.subheader("Explore the Distribution of Traits")
+
+    if "Trait" in species_df.columns and "Value" in species_df.columns:
+        available_traits = sorted(species_df["Trait"].dropna().unique())
+        if available_traits:
+            chosen_trait = st.selectbox("Trait (within selected species)", available_traits)
+
+            trait_df = species_df[
+                (species_df["Trait"] == chosen_trait) & (species_df["Value"].notna())
+            ].copy()
+
+            if trait_df.empty:
+                st.info("No numeric values available for this trait under this species.")
+            else:
+                hist = (
+                    alt.Chart(trait_df)
+                    .mark_bar()
+                    .encode(
+                        x=alt.X("Value:Q", bin=alt.Bin(maxbins=50), title=f"{chosen_trait} (Value)"),
+                        y=alt.Y("count()", title="Count"),
+                        tooltip=[alt.Tooltip("count()", title="Count")],
+                    )
+                    .properties(height=300)
+                )
+                st.altair_chart(hist, use_container_width=True)
+
+                if "Year" in trait_df.columns and trait_df["Year"].notna().any():
+                    med = (
+                        trait_df.dropna(subset=["Year", "Value"])
+                        .groupby("Year", as_index=False)["Value"]
+                        .median()
+                    )
+                    line = (
+                        alt.Chart(med)
+                        .mark_line()
+                        .encode(
+                            x=alt.X("Year:Q", title="Year"),
+                            y=alt.Y("Value:Q", title=f"Median {chosen_trait}"),
+                            tooltip=["Year:Q", "Value:Q"],
+                        )
+                        .properties(height=240)
+                    )
+                    st.altair_chart(line, use_container_width=True)
+        else:
+            st.info("No traits available for this species.")
+    else:
+        st.info("Trait exploration requires 'Trait' and 'Value' columns.")
 
     st.divider()
 
