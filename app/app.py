@@ -88,51 +88,36 @@ else:
 
 st.divider()
 
-# -----------------------------
-# Filters (main area)
-# -----------------------------
-st.subheader("Filters")
+tab_species, tab_trait, tab_spatial, tab_quality, tab_table = st.tabs(
+    ["Species", "Trait", "Spatial", "Data quality", "Table"]
+)
 
-f1, f2, f3, f4 = st.columns(4)
+with tab_species:
+    st.header("Species")
 
-traits = _safe_unique(df, "Trait")
-species = _safe_unique(df, "AccSpeciesName")
-sites = _safe_unique(df, "SiteName")
-treatments = _safe_unique(df, "Treatment")
+    if "AccSpeciesName" not in df.columns:
+        st.error("Column 'AccSpeciesName' not found in the dataset.")
+        st.stop()
 
-with f1:
-    selected_trait = st.selectbox("Trait", traits, index=0 if traits else None)
-with f2:
-    selected_species = st.selectbox("Species", ["All"] + species, index=0)
-with f3:
-    selected_site = st.selectbox("Site", ["All"] + sites, index=0)
-with f4:
-    selected_treatment = st.selectbox("Treatment", ["All"] + treatments, index=0)
+    species_list = sorted(df["AccSpeciesName"].dropna().unique())
+    selected_species = st.selectbox("Select a species", species_list)
 
-# Year slider
-if "Year" in df.columns and df["Year"].notna().any():
-    year_min = int(df["Year"].min())
-    year_max = int(df["Year"].max())
-    year_range = st.slider("Year range", year_min, year_max, (year_min, year_max))
-else:
-    year_range = None
+    species_df = df[df["AccSpeciesName"] == selected_species].copy()
 
-# Apply filters
-filtered = df.copy()
+    # Ensure numeric columns behave
+    for col in ["Year", "DayOfYear", "Value", "ErrorRisk", "Latitude", "Longitude", "Elevation"]:
+        if col in species_df.columns:
+            species_df[col] = pd.to_numeric(species_df[col], errors="coerce")
 
-if selected_trait and "Trait" in filtered.columns:
-    filtered = filtered[filtered["Trait"] == selected_trait]
+    # ---- Preview table ----
+    st.subheader("Row preview (first 200)")
 
-if selected_species != "All" and "AccSpeciesName" in filtered.columns:
-    filtered = filtered[filtered["AccSpeciesName"] == selected_species]
-
-if selected_site != "All" and "SiteName" in filtered.columns:
-    filtered = filtered[filtered["SiteName"] == selected_site]
-
-if selected_treatment != "All" and "Treatment" in filtered.columns:
-    filtered = filtered[filtered["Treatment"] == selected_treatment]
-
-if year_range and "Year" in filtered.columns:
-    filtered = filtered[filtered["Year"].between(year_range[0], year_range[1])]
-
-st.caption(f"Filtered rows: {len(filtered):,}")
+    preview_cols = [
+        "AccSpeciesName", "Trait", "Value", "Units", "Year", "DayOfYear",
+        "SiteName", "SubsiteName", "Treatment",
+        "Latitude", "Longitude", "Elevation",
+        "ValueKindName", "IndividualID", "DataContributor",
+        "ErrorRisk", "Comments"
+    ]
+    preview_cols = [c for c in preview_cols if c in species_df.columns]
+    st.dataframe(species_df[preview_cols].head(200), use_container_width=True)
