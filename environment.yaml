@@ -12,4 +12,5 @@ dependencies:
   - requests
   - shapely
   - streamlit
+  - jupyter
 prefix: /Users/benchen/miniconda3/envs/ttt-dashboard
