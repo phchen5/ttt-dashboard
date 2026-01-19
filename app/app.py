@@ -207,27 +207,25 @@ with tab_species:
                 )
                 st.altair_chart(hist, use_container_width=True)
 
-                if "Year" in trait_df.columns and trait_df["Year"].notna().any():
-                    med = (
-                        trait_df.dropna(subset=["Year", "Value"])
-                        .groupby("Year", as_index=False)["Value"]
-                        .median()
-                    )
-                    line = (
-                        alt.Chart(med)
-                        .mark_line()
-                        .encode(
-                            x=alt.X("Year:Q", title="Year"),
-                            y=alt.Y("Value:Q", title=f"Median {chosen_trait}"),
-                            tooltip=["Year:Q", "Value:Q"],
-                        )
-                        .properties(height=240)
-                    )
-                    st.altair_chart(line, use_container_width=True)
         else:
             st.info("No traits available for this species.")
     else:
         st.info("Trait exploration requires 'Trait' and 'Value' columns.")
+
+    st.divider()
+
+
+    # ---- Map view ----
+    st.subheader("Measurement Locations")
+
+    if {"Latitude", "Longitude"}.issubset(species_df.columns):
+        map_df = species_df.dropna(subset=["Latitude", "Longitude"]).copy()
+        if map_df.empty:
+            st.info("No georeferenced points available for this species.")
+        else:
+            st.map(map_df.rename(columns={"Latitude": "lat", "Longitude": "lon"})[["lat", "lon"]])
+    else:
+        st.info("Latitude/Longitude not available for map view.")
 
     st.divider()
 
