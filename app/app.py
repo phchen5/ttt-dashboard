@@ -121,6 +121,42 @@ with tab_species:
 
     st.divider()
 
+    # ---- Trait coverage (counts) ----
+    st.subheader("Trait coverage")
+
+    if "Trait" not in species_df.columns:
+        st.info("No 'Trait' column available.")
+    else:
+        trait_counts = (
+            species_df.dropna(subset=["Trait"])
+            .groupby("Trait", as_index=False)
+            .size()
+            .rename(columns={"size": "n"})
+            .sort_values("n", ascending=False)
+        )
+
+        if trait_counts.empty:
+            st.info("No trait records available for this species.")
+        else:
+            bar = (
+                alt.Chart(trait_counts)
+                .mark_bar()
+                .encode(
+                    y=alt.Y("Trait:N", sort="-x", title=None, axis=alt.Axis(labelLimit=400)),
+                    x=alt.X(
+                        "n:Q",
+                        title="Number of observations",
+                        scale=alt.Scale(nice=False, zero=True),
+                        axis=alt.Axis(tickMinStep=1.0)
+                    ),
+                    tooltip=["Trait:N", "n:Q"],
+                )
+                .properties(height=min(520, 18 * max(10, len(trait_counts))))
+            )
+            st.altair_chart(bar, use_container_width=True)
+
+    st.divider()
+
     # ---- Preview table ----
     st.subheader("Row preview (first 200)")
 
