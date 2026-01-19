@@ -1,6 +1,8 @@
 import pandas as pd
 import altair as alt
 import streamlit as st
+import pydeck as pdk
+import numpy as np
 
 from utils import (
     RAW_URL,
@@ -218,14 +220,80 @@ with tab_species:
     # ---- Map view ----
     st.subheader("Measurement Locations")
 
-    if {"Latitude", "Longitude"}.issubset(species_df.columns):
-        map_df = species_df.dropna(subset=["Latitude", "Longitude"]).copy()
-        if map_df.empty:
-            st.info("No georeferenced points available for this species.")
-        else:
-            st.map(map_df.rename(columns={"Latitude": "lat", "Longitude": "lon"})[["lat", "lon"]])
+    # 1) Clean coords
+    map_df = species_df.dropna(subset=["Latitude", "Longitude"]).copy()
+    map_df["Latitude"] = pd.to_numeric(map_df["Latitude"], errors="coerce")
+    map_df["Longitude"] = pd.to_numeric(map_df["Longitude"], errors="coerce")
+    map_df = map_df.dropna(subset=["Latitude", "Longitude"])
+
+    if map_df.empty:
+        st.info("No georeferenced observations available for this species.")
     else:
-        st.info("Latitude/Longitude not available for map view.")
+        # 2) Aggregate by location and keep helpful summary fields for tooltips
+        agg = (
+            map_df.groupby(["Latitude", "Longitude"], as_index=False)
+            .agg(
+                n_obs=("Latitude", "size"),
+                site=("SiteName", lambda x: x.dropna().iloc[0] if len(x.dropna()) else ""),
+                subsite=("SubsiteName", lambda x: x.dropna().iloc[0] if len(x.dropna()) else ""),
+                year_min=("Year", "min") if "Year" in map_df.columns else ("Latitude", "size"),
+                year_max=("Year", "max") if "Year" in map_df.columns else ("Latitude", "size"),
+                n_traits=("Trait", "nunique") if "Trait" in map_df.columns else ("Latitude", "size"),
+            )
+        )
+
+        if "Year" not in map_df.columns:
+            agg["year_min"] = None
+            agg["year_max"] = None
+
+        st.caption(f"Raw rows: {len(map_df):,} | Unique locations: {len(agg):,}")
+
+        # 3) Radius scaling (pixels)
+        agg["radius_px"] = np.sqrt(agg["n_obs"].clip(lower=1)) * 3 + 2
+
+        # 4) Center map
+        center_lat = float(agg["Latitude"].mean())
+        center_lon = float(agg["Longitude"].mean())
+
+        layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=agg,
+            get_position="[Longitude, Latitude]",
+            radius_units="pixels",
+            get_radius="radius_px",
+            get_fill_color=[200, 30, 0, 120],
+            get_line_color=[200, 30, 0, 200],
+            line_width_min_pixels=1,
+            pickable=True,           # ✅ required for tooltips
+            auto_highlight=True,
+        )
+
+        tooltip = {
+            "html": """
+            <b>Site:</b> {site}<br/>
+            <b>Subsite:</b> {subsite}<br/>
+            <b>Observations:</b> {n_obs}<br/>
+            <b>Traits:</b> {n_traits}<br/>
+            <b>Year range:</b> {year_min} – {year_max}<br/>
+            <b>Lat/Lon:</b> {Latitude}, {Longitude}
+            """,
+            "style": {"backgroundColor": "white", "color": "black"},
+        }
+
+        deck = pdk.Deck(
+            layers=[layer],
+            initial_view_state=pdk.ViewState(
+                latitude=center_lat,
+                longitude=center_lon,
+                zoom=1.8,
+                pitch=0,
+            ),
+            map_style=None,  # keep simple; switch to a basemap later if you want
+            tooltip=tooltip,
+        )
+
+        st.pydeck_chart(deck, use_container_width=True)
+
 
     st.divider()
 
