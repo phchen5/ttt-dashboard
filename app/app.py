@@ -157,6 +157,30 @@ with tab_species:
 
     st.divider()
 
+    # ---- Trait value summary table (median/IQR) ----
+    st.subheader("Trait Summary Statistics")
+
+    if not {"Trait", "Value"}.issubset(species_df.columns):
+        st.info("Columns 'Trait' and/or 'Value' are missing.")
+    else:
+        summary = (
+            species_df.dropna(subset=["Trait", "Value"])
+            .groupby(["Trait", "Units"], as_index=False)
+            .agg(
+                n=("Value", "count"),
+                median=("Value", "median"),
+                p25=("Value", lambda x: x.quantile(0.25)),
+                p75=("Value", lambda x: x.quantile(0.75)),
+                min=("Value", "min"),
+                max=("Value", "max"),
+            )
+            .sort_values("n", ascending=False)
+        )
+        st.dataframe(summary, use_container_width=True)
+
+    st.divider()
+
+
     # ---- Preview table ----
     st.subheader("Row preview (first 200)")
 
