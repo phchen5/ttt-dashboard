@@ -74,7 +74,7 @@ On first run, the app will automatically download the Tundra Trait Team (TTT) da
 
 ## Data source and citation
 
-This project uses data from the **Tundra Trait Team (TTT)** database, which is publicly available under a  
+This project uses data from the [Tundra Trait Team (TTT)](https://tundratraitteam.github.io/) database, which is publicly available under a  
 **Creative Commons Attribution 4.0 International (CC BY 4.0)** license.
 
 When using TTT data, please cite the following paper as the original data source:
