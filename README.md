@@ -9,6 +9,7 @@ It provides quick, interactive views of:
 - **Data quality** (missingness overview, `ErrorRisk` distribution and flagged record review)
 - **Table view + export** (filter and download a subset as CSV)
 
+![Dashboard Screenshot](img/dashboard.png)
 
 ## Setup
 
@@ -69,8 +70,7 @@ From the repository root:
 streamlit run app/app.py
 ```
 
-On first run, the app will automatically download the Tundra Trait Team (TTT) dataset (if not already cached locally) and launch the dashboard in your browser.
-
+On first run, the app will automatically download the Tundra Trait Team (TTT) dataset (if not already cached locally) and launch the dashboard in your browser. Note that this may take some time.
 
 ## Data source and citation
 
