@@ -85,8 +85,6 @@ if "Year" in df.columns and df["Year"].notna().any():
 else:
     c4.metric("Year range", "N/A")
 
-st.divider()
-
 # Define Tabs
 tab_species, tab_trait, tab_spatial, tab_quality, tab_table = st.tabs(
     ["Species", "Trait", "Spatial", "Data quality", "Table"]
