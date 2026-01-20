@@ -515,3 +515,84 @@ with tab_spatial:
 
         st.pydeck_chart(deck, use_container_width=True)
 
+with tab_quality:
+    st.header("Data Quality")
+
+    # --- Missingness overview ---
+    st.subheader("Missingness (top columns)")
+
+    na_rate = (
+        df.isna().mean()
+        .sort_values(ascending=False)
+        .reset_index()
+        .rename(columns={"index": "column", 0: "missing_rate"})
+    )
+    na_rate["missing_pct"] = (na_rate["missing_rate"] * 100).round(1)
+
+    # Show a fixed number (no filter)
+    TOP_N = 20
+
+    miss_chart = (
+        alt.Chart(na_rate.head(TOP_N))
+        .mark_bar()
+        .encode(
+            y=alt.Y("column:N", sort="-x", title=None, axis=alt.Axis(labelLimit=350)),
+            x=alt.X("missing_pct:Q", title="% missing"),
+            tooltip=["column:N", "missing_pct:Q"],
+        )
+        .properties(height=460)
+    )
+    st.altair_chart(miss_chart, use_container_width=True)
+
+    st.divider()
+
+    # --- ErrorRisk distribution + flagging ---
+    if "ErrorRisk" in df.columns:
+        st.subheader("ErrorRisk")
+
+        er = df.copy()
+        er["ErrorRisk"] = pd.to_numeric(er["ErrorRisk"], errors="coerce")
+        er = er.dropna(subset=["ErrorRisk"])
+
+        if er.empty:
+            st.info("No numeric ErrorRisk values available.")
+        else:
+            # Histogram first
+            er_hist = (
+                alt.Chart(er)
+                .mark_bar()
+                .encode(
+                    x=alt.X("ErrorRisk:Q", bin=alt.Bin(maxbins=50), title="ErrorRisk"),
+                    y=alt.Y("count()", title="Count"),
+                    tooltip=[alt.Tooltip("count()", title="Count")],
+                )
+                .properties(height=260)
+            )
+            st.altair_chart(er_hist, use_container_width=True)
+
+            # Threshold slider BELOW histogram, ABOVE table
+            thresh = st.slider(
+                "Flag rows with ErrorRisk ≥",
+                min_value=0.0,
+                max_value=float(er["ErrorRisk"].max()),
+                value=0.5,
+            )
+
+            flagged = df.copy()
+            flagged["ErrorRisk"] = pd.to_numeric(flagged["ErrorRisk"], errors="coerce")
+            flagged = flagged[flagged["ErrorRisk"].notna() & (flagged["ErrorRisk"] >= thresh)].copy()
+
+            st.caption(f"Flagged rows: {len(flagged):,}")
+
+            cols = [c for c in [
+                "AccSpeciesName", "Trait", "Value", "Units", "Year",
+                "SiteName", "SubsiteName", "Latitude", "Longitude",
+                "ValueKindName", "DataContributor", "ErrorRisk", "Comments"
+            ] if c in flagged.columns]
+
+            st.dataframe(
+                flagged[cols].sort_values("ErrorRisk", ascending=False).head(300),
+                use_container_width=True
+            )
+    else:
+        st.info("No 'ErrorRisk' column in this dataset.")
