@@ -450,3 +450,68 @@ with tab_trait:
             )
 
             st.altair_chart(band + line, use_container_width=True)
+
+
+with tab_spatial:
+    st.header("Spatial Coverage")
+
+    map_df = df.dropna(subset=["Latitude", "Longitude"]).copy()
+    map_df["Latitude"] = pd.to_numeric(map_df["Latitude"], errors="coerce")
+    map_df["Longitude"] = pd.to_numeric(map_df["Longitude"], errors="coerce")
+    map_df = map_df.dropna(subset=["Latitude", "Longitude"])
+
+    if map_df.empty:
+        st.info("No georeferenced observations available.")
+    else:
+        # Round for stable grouping
+        map_df["lat_r"] = map_df["Latitude"].round(4)
+        map_df["lon_r"] = map_df["Longitude"].round(4)
+
+        agg = (
+            map_df.groupby(["lat_r", "lon_r"], as_index=False)
+            .agg(
+                Latitude=("Latitude", "mean"),
+                Longitude=("Longitude", "mean"),
+                n_obs=("Latitude", "size"),
+                site=("SiteName", lambda x: x.dropna().iloc[0] if len(x.dropna()) else ""),
+                subsite=("SubsiteName", lambda x: x.dropna().iloc[0] if len(x.dropna()) else ""),
+            )
+        )
+
+        agg["radius_px"] = np.sqrt(agg["n_obs"].clip(lower=1)) * 1.2 + 1
+
+        center_lat = float(agg["Latitude"].mean())
+        center_lon = float(agg["Longitude"].mean())
+
+        layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=agg,
+            get_position="[Longitude, Latitude]",
+            radius_units="pixels",
+            get_radius="radius_px",
+            get_fill_color=[30, 120, 200, 110],
+            get_line_color=[30, 120, 200, 180],
+            line_width_min_pixels=1,
+            pickable=True,
+            auto_highlight=True,
+        )
+
+        tooltip = {
+            "html": """
+            <b>Site:</b> {site}<br/>
+            <b>Subsite:</b> {subsite}<br/>
+            <b>Observations:</b> {n_obs}<br/>
+            <b>Lat/Lon:</b> {Latitude}, {Longitude}
+            """,
+            "style": {"backgroundColor": "white", "color": "black"},
+        }
+
+        deck = pdk.Deck(
+            layers=[layer],
+            initial_view_state=pdk.ViewState(latitude=center_lat, longitude=center_lon, zoom=1.2, pitch=0),
+            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            tooltip=tooltip,
+        )
+
+        st.pydeck_chart(deck, use_container_width=True)
+
