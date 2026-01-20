@@ -24,6 +24,9 @@ def load_data() -> pd.DataFrame:
     csv_path = fetch_csv_if_needed(RAW_URL, LOCAL_CSV)
     df = pd.read_csv(csv_path)
 
+    if "Unnamed: 0" in df.columns:
+        df = df.drop(columns=["Unnamed: 0"])
+
     # Lightweight type safety
     if "Year" in df.columns:
         df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
@@ -596,3 +599,48 @@ with tab_quality:
             )
     else:
         st.info("No 'ErrorRisk' column in this dataset.")
+
+with tab_table:
+    st.header("Table")
+
+    st.caption("Use this table to filter, inspect, and export a slice of the dataset.")
+
+    # Lightweight filters
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        trait_pick = None
+        if "Trait" in df.columns:
+            trait_pick = st.selectbox("Trait", ["(All)"] + sorted(df["Trait"].dropna().unique()))
+    with c2:
+        species_pick = None
+        if "AccSpeciesName" in df.columns:
+            species_pick = st.selectbox("Species", ["(All)"] + sorted(df["AccSpeciesName"].dropna().unique()))
+    with c3:
+        year_pick = None
+        if "Year" in df.columns and df["Year"].notna().any():
+            y_min, y_max = int(df["Year"].min()), int(df["Year"].max())
+            year_pick = st.slider("Year range", y_min, y_max, (y_min, y_max))
+
+    out = df.copy()
+
+    if trait_pick and trait_pick != "(All)" and "Trait" in out.columns:
+        out = out[out["Trait"] == trait_pick]
+    if species_pick and species_pick != "(All)" and "AccSpeciesName" in out.columns:
+        out = out[out["AccSpeciesName"] == species_pick]
+    if year_pick and "Year" in out.columns:
+        out["Year"] = pd.to_numeric(out["Year"], errors="coerce")
+        out = out[out["Year"].between(year_pick[0], year_pick[1], inclusive="both")]
+
+    st.caption(f"Rows shown: {len(out):,}")
+
+    st.dataframe(out.head(2000), use_container_width=True)
+
+    # Download filtered data
+    csv_bytes = out.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="Download filtered data as CSV",
+        data=csv_bytes,
+        file_name="ttt_filtered.csv",
+        mime="text/csv",
+    )
