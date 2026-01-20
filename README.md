@@ -72,3 +72,11 @@ streamlit run app/app.py
 On first run, the app will automatically download the Tundra Trait Team (TTT) dataset (if not already cached locally) and launch the dashboard in your browser.
 
 
+## Data source and citation
+
+This project uses data from the **Tundra Trait Team (TTT)** database, which is publicly available under a  
+**Creative Commons Attribution 4.0 International (CC BY 4.0)** license.
+
+When using TTT data, please cite the following paper as the original data source:
+
+> Bjorkman, A. D., Myers-Smith, I. H., Elmendorf, S. C., Normand, S., Thomas, H. J. D., *et al.* (2018).Tundra Trait Team: A database of plant traits spanning the tundra biome. Global Ecology and Biogeography. doi: https://doi.org/10.1111/geb.12821
