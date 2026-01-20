@@ -16,9 +16,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# -----------------------------
-# Data loading
-# -----------------------------
+# Data Loading
 @st.cache_data(show_spinner="Fetching & loading dataset...")
 def load_data() -> pd.DataFrame:
     csv_path = fetch_csv_if_needed(RAW_URL, LOCAL_CSV)
@@ -45,9 +43,7 @@ def _safe_unique(df: pd.DataFrame, col: str):
         return []
     return sorted([x for x in df[col].dropna().unique()])
 
-# -----------------------------
-# Sidebar controls
-# -----------------------------
+# Sidebar
 with st.sidebar:
     st.header("Data")
 
@@ -69,9 +65,7 @@ with st.sidebar:
 
 df = load_data()
 
-# -----------------------------
-# Header + overview
-# -----------------------------
+# Header
 st.title("Tundra Trait Team (TTT) Database Explorer")
 
 st.markdown(
@@ -81,7 +75,7 @@ including spatial coverage, trait distributions, and data quality indicators.
 """
 )
 
-# Metrics
+# Overall Metrics
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Observations", f"{len(df):,}" if len(df) else "0")
 c2.metric("Traits", df["Trait"].nunique() if "Trait" in df.columns else 0)
@@ -93,10 +87,12 @@ else:
 
 st.divider()
 
+# Define Tabs
 tab_species, tab_trait, tab_spatial, tab_quality, tab_table = st.tabs(
     ["Species", "Trait", "Spatial", "Data quality", "Table"]
 )
 
+# Species Tab
 with tab_species:
     st.header("Species")
 
@@ -114,7 +110,7 @@ with tab_species:
         if col in species_df.columns:
             species_df[col] = pd.to_numeric(species_df[col], errors="coerce")
 
-    # ---- Summary metrics ----
+    # Summary metrics
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Rows", f"{len(species_df):,}")
     c2.metric("Traits measured", species_df["Trait"].nunique() if "Trait" in species_df.columns else 0)
@@ -126,7 +122,7 @@ with tab_species:
 
     st.divider()
 
-    # ---- Trait coverage (counts) ----
+    # Trait coverage
     st.subheader("Trait Coverage")
 
     if "Trait" not in species_df.columns:
@@ -162,7 +158,7 @@ with tab_species:
 
     st.divider()
 
-    # ---- Trait value summary table (median/IQR) ----
+    # Trait Summary Statistics
     st.subheader("Trait Summary Statistics")
 
     if not {"Trait", "Value"}.issubset(species_df.columns):
@@ -185,7 +181,7 @@ with tab_species:
 
     st.divider()
 
-    # ---- Optional: choose a trait for a deeper look ----
+    # Trait Distribution
     st.subheader("Explore the Distribution of Traits")
 
     if "Trait" in species_df.columns and "Value" in species_df.columns:
@@ -220,10 +216,9 @@ with tab_species:
     st.divider()
 
 
-    # ---- Map view ----
+    # Trait Map
     st.subheader("Measurement Locations")
 
-    # 1) Clean coords
     map_df = species_df.dropna(subset=["Latitude", "Longitude"]).copy()
     map_df["Latitude"] = pd.to_numeric(map_df["Latitude"], errors="coerce")
     map_df["Longitude"] = pd.to_numeric(map_df["Longitude"], errors="coerce")
@@ -232,7 +227,6 @@ with tab_species:
     if map_df.empty:
         st.info("No georeferenced observations available for this species.")
     else:
-        # 2) Aggregate by location and keep helpful summary fields for tooltips
         agg = (
             map_df.groupby(["Latitude", "Longitude"], as_index=False)
             .agg(
@@ -251,10 +245,8 @@ with tab_species:
 
         st.caption(f"Raw rows: {len(map_df):,} | Unique locations: {len(agg):,}")
 
-        # 3) Radius scaling (pixels)
         agg["radius_px"] = np.sqrt(agg["n_obs"].clip(lower=1)) * 3 + 2
 
-        # 4) Center map
         center_lat = float(agg["Latitude"].mean())
         center_lon = float(agg["Longitude"].mean())
 
@@ -291,17 +283,15 @@ with tab_species:
                 zoom=1.8,
                 pitch=0,
             ),
-            map_style=None,  # keep simple; switch to a basemap later if you want
+            map_style=None,
             tooltip=tooltip,
         )
 
         st.pydeck_chart(deck, use_container_width=True)
 
-
     st.divider()
 
-
-    # ---- Preview table ----
+    # Preview Table
     st.subheader("Row preview (first 200)")
 
     preview_cols = [
@@ -314,6 +304,7 @@ with tab_species:
     preview_cols = [c for c in preview_cols if c in species_df.columns]
     st.dataframe(species_df[preview_cols].head(200), use_container_width=True)
 
+# Traits Tab
 with tab_trait:
     st.header("Trait Overview")
 
@@ -321,7 +312,7 @@ with tab_trait:
         st.error("Column 'Trait' not found.")
         st.stop()
 
-    # --- Controls ---
+    # Controls
     c1, c2 = st.columns([3, 1])
     with c1:
         trait_list = sorted(df["Trait"].dropna().unique())
@@ -331,11 +322,10 @@ with tab_trait:
 
     trait_df = df[df["Trait"] == selected_trait].copy()
 
-    # Numeric safety
     if "Value" in trait_df.columns:
         trait_df["Value"] = pd.to_numeric(trait_df["Value"], errors="coerce")
 
-    # --- Metrics ---
+    # Trait Metrics
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Rows", f"{len(trait_df):,}")
     m2.metric(
@@ -358,7 +348,7 @@ with tab_trait:
 
     st.divider()
 
-    # --- Trait coverage across dataset ---
+    # Trait Coverage
     st.subheader("Which traits are most measured?")
     trait_counts_all = (
         df.dropna(subset=["Trait"])
@@ -384,7 +374,7 @@ with tab_trait:
 
     st.divider()
 
-    # --- Distribution for selected trait ---
+    # Trait Distribution
     st.subheader("Distribution")
 
     values = trait_df.dropna(subset=["Value"]).copy()
@@ -413,7 +403,7 @@ with tab_trait:
 
     st.divider()
 
-    # --- Trait over time (median by year) ---
+    # Trait over Time
     if "Year" in trait_df.columns and "Value" in trait_df.columns:
         st.subheader("Trait over time (median by year)")
 
@@ -454,7 +444,7 @@ with tab_trait:
 
             st.altair_chart(band + line, use_container_width=True)
 
-
+# Spatial Tab
 with tab_spatial:
     st.header("Spatial Coverage")
 
@@ -466,7 +456,6 @@ with tab_spatial:
     if map_df.empty:
         st.info("No georeferenced observations available.")
     else:
-        # Round for stable grouping
         map_df["lat_r"] = map_df["Latitude"].round(4)
         map_df["lon_r"] = map_df["Longitude"].round(4)
 
@@ -518,10 +507,10 @@ with tab_spatial:
 
         st.pydeck_chart(deck, use_container_width=True)
 
+# Quality Tab
 with tab_quality:
     st.header("Data Quality")
 
-    # --- Missingness overview ---
     st.subheader("Missingness (top columns)")
 
     na_rate = (
@@ -532,7 +521,6 @@ with tab_quality:
     )
     na_rate["missing_pct"] = (na_rate["missing_rate"] * 100).round(1)
 
-    # Show a fixed number (no filter)
     TOP_N = 20
 
     miss_chart = (
@@ -549,7 +537,7 @@ with tab_quality:
 
     st.divider()
 
-    # --- ErrorRisk distribution + flagging ---
+    # ErrorRisk Distribution
     if "ErrorRisk" in df.columns:
         st.subheader("ErrorRisk")
 
@@ -560,7 +548,7 @@ with tab_quality:
         if er.empty:
             st.info("No numeric ErrorRisk values available.")
         else:
-            # Histogram first
+            # Error Risk Histogram
             er_hist = (
                 alt.Chart(er)
                 .mark_bar()
@@ -573,7 +561,7 @@ with tab_quality:
             )
             st.altair_chart(er_hist, use_container_width=True)
 
-            # Threshold slider BELOW histogram, ABOVE table
+            # ErrorRisk Slider Filter + Table
             thresh = st.slider(
                 "Flag rows with ErrorRisk ≥",
                 min_value=0.0,
@@ -600,12 +588,13 @@ with tab_quality:
     else:
         st.info("No 'ErrorRisk' column in this dataset.")
 
+# Table Tab
 with tab_table:
     st.header("Table")
 
     st.caption("Use this table to filter, inspect, and export a slice of the dataset.")
 
-    # Lightweight filters
+    # Filters
     c1, c2, c3 = st.columns(3)
 
     with c1:
@@ -622,6 +611,7 @@ with tab_table:
             y_min, y_max = int(df["Year"].min()), int(df["Year"].max())
             year_pick = st.slider("Year range", y_min, y_max, (y_min, y_max))
 
+    # Table
     out = df.copy()
 
     if trait_pick and trait_pick != "(All)" and "Trait" in out.columns:
