@@ -310,3 +310,143 @@ with tab_species:
     ]
     preview_cols = [c for c in preview_cols if c in species_df.columns]
     st.dataframe(species_df[preview_cols].head(200), use_container_width=True)
+
+with tab_trait:
+    st.header("Trait Overview")
+
+    if "Trait" not in df.columns:
+        st.error("Column 'Trait' not found.")
+        st.stop()
+
+    # --- Controls ---
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        trait_list = sorted(df["Trait"].dropna().unique())
+        selected_trait = st.selectbox("Select a trait", trait_list)
+    with c2:
+        maxbins = st.slider("Histogram bins", 10, 100, 50, 5)
+
+    trait_df = df[df["Trait"] == selected_trait].copy()
+
+    # Numeric safety
+    if "Value" in trait_df.columns:
+        trait_df["Value"] = pd.to_numeric(trait_df["Value"], errors="coerce")
+
+    # --- Metrics ---
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Rows", f"{len(trait_df):,}")
+    m2.metric(
+        "Species",
+        trait_df["AccSpeciesName"].nunique()
+        if "AccSpeciesName" in trait_df.columns else 0
+    )
+    m3.metric(
+        "Sites",
+        trait_df["SiteName"].nunique()
+        if "SiteName" in trait_df.columns else 0
+    )
+    if "Year" in trait_df.columns and trait_df["Year"].notna().any():
+        m4.metric(
+            "Year range",
+            f"{int(trait_df['Year'].min())} – {int(trait_df['Year'].max())}"
+        )
+    else:
+        m4.metric("Year range", "N/A")
+
+    st.divider()
+
+    # --- Trait coverage across dataset ---
+    st.subheader("Which traits are most measured?")
+    trait_counts_all = (
+        df.dropna(subset=["Trait"])
+        .groupby("Trait", as_index=False)
+        .size()
+        .rename(columns={"size": "n"})
+        .sort_values("n", ascending=False)
+        .head(30)
+    )
+
+    chart_counts = (
+        alt.Chart(trait_counts_all)
+        .mark_bar()
+        .encode(
+            y=alt.Y("Trait:N", sort="-x", title=None,
+                    axis=alt.Axis(labelLimit=350)),
+            x=alt.X("n:Q", title="Observations"),
+            tooltip=["Trait:N", "n:Q"],
+        )
+        .properties(height=520)
+    )
+    st.altair_chart(chart_counts, use_container_width=True)
+
+    st.divider()
+
+    # --- Distribution for selected trait ---
+    st.subheader("Distribution")
+
+    values = trait_df.dropna(subset=["Value"]).copy()
+    if values.empty:
+        st.info("No numeric values available for this trait.")
+    else:
+        unit_label = ""
+        if "Units" in values.columns and values["Units"].notna().any():
+            unit_label = values["Units"].dropna().iloc[0]
+
+        hist = (
+            alt.Chart(values)
+            .mark_bar()
+            .encode(
+                x=alt.X(
+                    "Value:Q",
+                    bin=alt.Bin(maxbins=maxbins),
+                    title=f"{selected_trait} ({unit_label})"
+                ),
+                y=alt.Y("count()", title="Count"),
+                tooltip=[alt.Tooltip("count()", title="Count")],
+            )
+            .properties(height=320)
+        )
+        st.altair_chart(hist, use_container_width=True)
+
+    st.divider()
+
+    # --- Trait over time (median by year) ---
+    if "Year" in trait_df.columns and "Value" in trait_df.columns:
+        st.subheader("Trait over time (median by year)")
+
+        yr = trait_df.dropna(subset=["Year", "Value"]).copy()
+        if yr.empty:
+            st.info("Not enough Year + Value records to show a time trend.")
+        else:
+            ts = (
+                yr.groupby("Year", as_index=False)
+                .agg(
+                    n=("Value", "count"),
+                    median=("Value", "median"),
+                    p25=("Value", lambda x: x.quantile(0.25)),
+                    p75=("Value", lambda x: x.quantile(0.75)),
+                )
+                .sort_values("Year")
+            )
+
+            band = (
+                alt.Chart(ts)
+                .mark_area(opacity=0.2)
+                .encode(
+                    x=alt.X("Year:Q", title="Year"),
+                    y=alt.Y("p25:Q", title=None),
+                    y2="p75:Q",
+                )
+            )
+
+            line = (
+                alt.Chart(ts)
+                .mark_line()
+                .encode(
+                    x="Year:Q",
+                    y=alt.Y("median:Q", title=f"Median {selected_trait}"),
+                    tooltip=["Year:Q", "n:Q", "median:Q", "p25:Q", "p75:Q"],
+                )
+            )
+
+            st.altair_chart(band + line, use_container_width=True)
